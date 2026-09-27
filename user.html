@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Party Connect - ระบบต้อนรับหน้างาน</title>
+    <link rel="icon" type="image/png" href="calendar.png">
+    <link href="https://fonts.googleapis.com/css2?family=Anakotmai:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <style>
+        :root { 
+            --primary: #ffd700; 
+            --bg-dark: #0f051d;
+            --card-bg: rgba(25, 18, 43, 0.95);
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { 
+            font-family: 'Anakotmai', sans-serif; 
+            background: url('https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1920&auto=format&fit=crop') no-repeat center center fixed;
+            background-size: cover; 
+            color: #f3f3f3; 
+            margin: 0; padding: 0; 
+            min-height: 100vh;
+            position: relative;
+        }
+        body::before {
+            content: ''; 
+            position: fixed; 
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(135deg, rgba(15, 5, 29, 0.92) 0%, rgba(45, 10, 68, 0.88) 100%);
+            z-index: -1;
+        }
+
+        body.login-locked {
+            overflow: hidden !important;
+            height: 100vh !important;
+            position: fixed !important;
+            width: 100% !important;
+            touch-action: none;
+        }
+        body.login-locked .main-app-content {
+            display: none !important;
+        }
+
+        /* Modal Login การ์ดขาวมินิมอล + PIN PAD */
+        .login-overlay {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            background: #0f172a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999999;
+            padding: 16px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        .login-card {
+            background: #ffffff;
+            width: 100%;
+            max-width: 350px;
+            border-radius: 28px;
+            padding: 30px 22px 24px;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            animation: modalFadeIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-sizing: border-box;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.92); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .login-icon-box {
+            font-size: 34px;
+            margin-bottom: 4px;
+            display: inline-block;
+            line-height: 1;
+        }
+        .login-title {
+            color: #0f172a;
+            font-size: 21px;
+            font-weight: 700;
+            margin: 0 0 4px 0;
+            letter-spacing: -0.3px;
+        }
+        .login-sub {
+            color: #64748b;
+            font-size: 13px;
+            margin: 0 0 16px 0;
+        }
+
+        .admin-pin-display {
+            width: 100%;
+            height: 50px;
+            border: 2px solid #bfdbfe;
+            border-radius: 14px;
+            background: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+        }
+        .admin-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #cbd5e1;
+            background: transparent;
+            transition: all 0.15s ease-out;
+        }
+        .admin-dot.filled {
+            background: #2563eb;
+            border-color: #2563eb;
+            transform: scale(1.15);
+            box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+        }
+
+        .login-btn {
+            width: 100%;
+            height: 48px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 12px;
+            background: #2563eb;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: 'Anakotmai', sans-serif;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+            transition: background 0.15s, transform 0.1s;
+        }
+        .login-btn:hover { background: #1d4ed8; }
+        .login-btn:active { transform: scale(0.98); background: #1e40af; }
+        
+        .login-error {
+            color: #ef4444;
+            font-size: 12px;
+            font-weight: bold;
+            min-height: 18px;
+            margin: 4px 0 6px;
+        }
+
+        .admin-pin-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            justify-items: center;
+            max-width: 250px;
+            margin: 14px auto 6px;
+        }
+        .admin-pin-btn {
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            color: #1e293b;
+            font-size: 23px;
+            font-weight: 700;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.12s, transform 0.08s;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .admin-pin-btn:active {
+            background: #cbd5e1;
+            transform: scale(0.92);
+        }
+        .admin-pin-btn.backspace {
+            background: transparent;
+            border: none;
+            font-size: 20px;
+            color: #64748b;
+        }
+        .admin-pin-btn.backspace:active {
+            background: transparent;
+            color: #ef4444;
+            transform: scale(0.88);
+        }
+
+        .shake-error {
+            animation: shake 0.35s ease;
+            border-color: #ef4444 !important;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        /* Top Bar */
+        .top-bar-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 12px 15px 0;
+            gap: 10px;
+        }
+        .header { 
+            text-align: center; 
+            padding: 10px 15px 10px; 
+            color: white; 
+            position: relative; 
+        }
+        .header h1 { 
+            margin: 0; 
+            font-size: 24px; 
+            text-shadow: 0 0 10px rgba(255,215,0,0.5); 
+            color: #ffd700; 
+            font-weight: 700; 
+            line-height: 1.3;
+        }
+        .header p { color: #ddd; font-size: 13px; margin: 4px 0 0 0; }
+
+        .back-home { 
+            display: inline-flex;
+            align-items: center;
+            background: rgba(255,255,255,0.1); 
+            color: white; 
+            padding: 6px 14px; 
+            border-radius: 20px; 
+            text-decoration: none; 
+            font-size: 12.5px; 
+            border: 1px solid rgba(255,215,0,0.3); 
+            transition: 0.3s; 
+            white-space: nowrap;
+        }
+        .back-home:hover { background: rgba(255,215,0,0.2); }
+
+        .sync-top-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: linear-gradient(135deg, rgba(33, 147, 176, 0.35) 0%, rgba(109, 213, 237, 0.25) 100%);
+            border: 1px solid rgba(109, 213, 237, 0.6);
+            color: #6dd5ed;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: 'Anakotmai', sans-serif;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(8px);
+            white-space: nowrap;
+            box-shadow: 0 2px 10px rgba(33, 147, 176, 0.25);
+        }
+        .sync-top-btn:hover {
+            background: linear-gradient(135deg, rgba(33, 147, 176, 0.6) 0%, rgba(109, 213, 237, 0.45) 100%);
+            box-shadow: 0 0 15px rgba(109, 213, 237, 0.5);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+        .sync-top-btn.loading .sync-icon { animation: spin 0.8s infinite linear; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .logout-top-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            color: #f87171;
+            padding: 6px 13px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: 'Anakotmai', sans-serif;
+            font-weight: bold;
+            transition: all 0.25s ease;
+            white-space: nowrap;
+        }
+        .logout-top-btn:hover {
+            background: rgba(239, 68, 68, 0.3);
+            color: #ffffff;
+            border-color: #ef4444;
+        }
+
+        .live-dot {
+            width: 7px; height: 7px; background-color: #00e676; border-radius: 50%; display: inline-block;
+            box-shadow: 0 0 8px #00e676; animation: pulseDot 1.8s infinite;
+        }
+        @keyframes pulseDot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
+
+        @media (min-width: 600px) {
+            .header h1 { font-size: 30px; }
+            .header p { font-size: 14px; }
+            .sync-top-btn { font-size: 13px; padding: 7px 16px; }
+            .logout-top-btn { font-size: 13px; padding: 7px 16px; }
+            .back-home { font-size: 13px; padding: 7px 16px; }
+        }
+        
+        /* Tabs */
+        .tabs { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 15px 10px; }
+        .tab-btn { background: rgba(255, 255, 255, 0.1); color: #ddd; border: 2px solid rgba(255,215,0,0.3); padding: 10px 18px; border-radius: 30px; cursor: pointer; font-size: 14px; font-family: 'Anakotmai', sans-serif; font-weight: 700; transition: 0.3s; }
+        .tab-btn:hover { background: rgba(255, 215, 0, 0.2); color: #fff; }
+        .tab-btn.active { background: linear-gradient(135deg, #ffd700 0%, #ffa500 100%); color: #1a0b2e; border-color: #ffd700; box-shadow: 0 0 15px rgba(255,215,0,0.4); }
+        
+        .container { max-width: 900px; margin: 0 auto 40px; padding: 0 15px; }
+        .tab-content { background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid rgba(255,215,0,0.3); border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); display: none; animation: fadeIn 0.4s ease; color: #fff; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        input[type="text"], input[type="file"] { width: 100%; padding: 12px; margin: 8px 0 12px; border: 2px solid #4a3b6c; background: #1a1528; color: white; border-radius: 10px; font-size: 15px; font-family: 'Anakotmai', sans-serif; }
+        input[type="text"]:focus { border-color: #ffd700; outline: none; box-shadow: 0 0 8px rgba(255,215,0,0.3); }
+
+        .action-btn { background: linear-gradient(135deg, #ffd700 0%, #ffa500 100%); color: #1a0b2e; border: none; padding: 14px 20px; border-radius: 10px; font-size: 15px; cursor: pointer; font-weight: bold; font-family: 'Anakotmai', sans-serif; width: 100%; transition: 0.3s; display: block; box-shadow: 0 4px 15px rgba(255,165,0,0.3); }
+        .action-btn:hover { opacity: 0.9; }
+        .action-btn.checkin-btn { background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%); color: white; }
+        .action-btn.print-btn { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; margin-bottom: 10px; }
+        .action-btn.sync-btn { background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%); color: #fff; margin-bottom: 10px; }
+        .action-btn.danger-btn { background: #ff4444; color: white; }
+        
+        .btn-group { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+        .btn-group button { flex: 1; min-width: 100%; }
+
+        .mode-btn { width: auto; font-size: 15px; padding: 10px 15px; flex: 1; min-width: 140px; color: white; }
+        .mode-btn.dark { background: #222; border: 1px solid #444; }
+        
+        .round-toggle-container { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .round-btn { background: rgba(255, 255, 255, 0.08); color: #ccc; border: 1px solid rgba(255, 215, 0, 0.3); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; font-family: 'Anakotmai', sans-serif; font-weight: 700; transition: 0.3s; }
+        .round-btn.active { background: #ffd700; color: #1a0b2e; border-color: #ffd700; box-shadow: 0 0 10px rgba(255,215,0,0.5); }
+
+        .scanner-viewfinder { position: relative; width: 100%; max-width: 280px; margin: 0 auto; border-radius: 12px; overflow: hidden; border: 3px solid #ffd700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.4); background: #000; }
+        .scan-line { position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: #ffd700; box-shadow: 0 0 10px #ffd700; animation: scanAnim 2s infinite linear; z-index: 10; }
+        @keyframes scanAnim { 0% { top: 0%; } 50% { top: 98%; } 100% { top: 0%; } }
+
+        #reader { width: 100%; border: none; background: #000; }
+        .scanner-box { background: #1a1528; padding: 15px; border-radius: 15px; text-align: center; border: 2px dashed #ffd700; }
+        #hardwareInput { font-size: 16px; text-align: center; font-weight: bold; padding: 12px; border: 2px solid #ffd700; background: #110E1B; color: #ffd700; outline: none; width: 100%; }
+        #result { margin-top: 15px; font-size: 18px; font-weight: bold; padding: 15px; border-radius: 10px; background: #1a1528; color: #fff; border: 1px solid rgba(255,215,0,0.3); text-align: center; }
+        
+        .branch-section { margin-top: 20px; padding: 15px; background: #18122B; border: 1px solid rgba(255,215,0,0.2); border-radius: 15px; }
+        .branch-section h3 { color: #ffd700 !important; font-size: 16px; }
+        .qr-grid { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; justify-content: center; }
+        
+        .qr-card { 
+            padding: 12px; 
+            border: 1px dashed rgba(255,215,0,0.4); 
+            border-radius: 12px; 
+            text-align: center; 
+            width: 175px; 
+            background: #110E1B; 
+            color: #fff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        } 
+        .info-text { margin-top: 8px; font-size: 12px; text-align: left; line-height: 1.4; color: #ddd; width: 100%; }
+        
+        .stat-grid { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 25px; }
+        .stat-box { background: #18122B; border-radius: 12px; padding: 15px; text-align: center; border: 1px solid rgba(255,215,0,0.3); flex: 1; min-width: 100px; }
+        .stat-box h3 { margin: 0 0 8px; font-size: 13px; color: #bbb; display: flex; justify-content: center; align-items: center; gap: 4px; }
+        .stat-number { font-size: 30px; font-weight: bold; margin: 0; line-height: 1; color: #ffd700; }
+        
+        .branch-stat-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+            margin-top: 15px;
+            margin-bottom: 25px;
+        }
+        .branch-stat-card {
+            background: #18122B;
+            border: 1px solid rgba(255, 215, 0, 0.25);
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: all 0.2s ease;
+        }
+        .branch-stat-card.open {
+            border-color: #ffd700;
+            background: #201738;
+            box-shadow: 0 6px 20px rgba(255,215,0,0.15);
+        }
+        .branch-stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px dashed rgba(255,215,0,0.2);
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+        }
+        .branch-stat-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffd700;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .branch-stat-badge {
+            background: rgba(255, 215, 0, 0.15);
+            color: #ffeb3b;
+            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,215,0,0.3);
+            font-weight: bold;
+        }
+        .branch-btn-group {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+            margin-top: 6px;
+        }
+        .branch-filter-btn {
+            flex: 1;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(0,0,0,0.25);
+            color: #ddd;
+            font-size: 13px;
+            font-weight: bold;
+            font-family: 'Anakotmai', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        .branch-filter-btn:hover { transform: translateY(-1px); }
+        .branch-filter-btn.btn-checked { border-color: rgba(0, 230, 118, 0.4); color: #00e676; }
+        .branch-filter-btn.btn-checked.active {
+            background: rgba(0, 230, 118, 0.25);
+            border-color: #00e676;
+            box-shadow: 0 0 10px rgba(0,230,118,0.3);
+            color: #fff;
+        }
+        .branch-filter-btn.btn-absent { border-color: rgba(255, 82, 82, 0.4); color: #ff5252; }
+        .branch-filter-btn.btn-absent.active {
+            background: rgba(255, 82, 82, 0.25);
+            border-color: #ff5252;
+            box-shadow: 0 0 10px rgba(255,82,82,0.3);
+            color: #fff;
+        }
+
+        .branch-stat-progress {
+            background: #251d38;
+            height: 7px;
+            border-radius: 4px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        .branch-stat-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00b09b, #96c93d);
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+        
+        .branch-guest-list {
+            display: none;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 215, 0, 0.2);
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .branch-stat-card.open .branch-guest-list { display: block; }
+        .branch-guest-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-size: 13px;
+            border-left: 3.5px solid #555;
+        }
+        .branch-guest-item.is-both { border-left-color: #00e676; }
+        .branch-guest-item.is-morning { border-left-color: #ffd700; }
+        .branch-guest-item.is-evening { border-left-color: #6dd5ed; }
+        .branch-guest-item.is-absent { border-left-color: #ff5252; }
+
+        .tags-wrapper {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            align-items: center;
+        }
+        .guest-status-tag {
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 12px;
+            white-space: nowrap;
+        }
+        .tag-morning {
+            background: rgba(255, 215, 0, 0.2);
+            color: #ffd700;
+            border: 1px solid rgba(255, 215, 0, 0.5);
+        }
+        .tag-evening {
+            background: rgba(109, 213, 237, 0.2);
+            color: #6dd5ed;
+            border: 1px solid rgba(109, 213, 237, 0.5);
+        }
+        .tag-both {
+            background: rgba(0, 230, 118, 0.2);
+            color: #00e676;
+            border: 1px solid rgba(0, 230, 118, 0.5);
+        }
+        .tag-absent {
+            background: rgba(255, 82, 82, 0.15);
+            color: #ff5252;
+            border: 1px solid rgba(255, 82, 82, 0.3);
+        }
+        .tag-time {
+            font-size: 10px;
+            color: #aaa;
+            margin-left: 2px;
+        }
+
+        .edit-btn { background: #33264d; color: #ffd700; border: 1px solid rgba(255,215,0,0.3); border-radius: 4px; cursor: pointer; padding: 2px 6px; font-size: 11px; }
+
+        @media (min-width: 600px) {
+            .container { padding: 0 20px; }
+            .tab-content { padding: 30px; }
+            .btn-group button { min-width: 240px; }
+            .qr-card { width: 185px; }
+            .stat-number { font-size: 38px; }
+            .branch-stat-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+        }
+
+        @media print { 
+            body { background: white !important; color: #333 !important; } 
+            .header, .tabs, .print-hide, .top-bar-nav { display: none !important; } 
+            .tab-content { box-shadow: none; padding: 0; background: transparent; color: #333; } 
+            .branch-section { page-break-after: always; padding: 0; background: white; border: none; } 
+            .qr-card { break-inside: avoid; border: 1px solid #ddd; background: white; color: #333; } 
+            .login-overlay { display: none !important; } 
+        }
+    </style>
+</head>
+<body class="login-locked">
+
+    <!-- 1. Modal Login การ์ดขาวมินิมอล + PIN PAD (รหัส: 999) -->
+    <div id="adminLoginOverlay" class="login-overlay">
+        <div class="login-card">
+            <div class="login-icon-box">🔒</div>
+            <h2 class="login-title">ระบบจัดการ Admin</h2>
+            <p class="login-sub">กรุณากรอกรหัสผ่านเพื่อเข้าสู่ระบบ</p>
+            
+            <div class="admin-pin-display" id="adminPinFrame">
+                <span class="admin-dot" id="adot-0"></span>
+                <span class="admin-dot" id="adot-1"></span>
+                <span class="admin-dot" id="adot-2"></span>
+            </div>
+
+            <div id="adminLoginError" class="login-error"></div>
+
+            <div class="admin-pin-grid">
+                <div class="admin-pin-btn" onclick="pressAdminPin('1')">1</div>
+                <div class="admin-pin-btn" onclick="pressAdminPin('2')">2</div>
+                <div class="admin-pin-btn" onclick="pressAdminPin('3')">3</div>
+                <div class="admin-pin-btn" onclick="pressAdminPin('4')">4</div>
+                <div class="admin-pin-btn" onclick="pressAdminPin('5')">5</div>
+                <div class="admin-pin-btn" onclick="pressAdminPin('6')">6</div>
+                <div class="admin-pin-btn" onclick="pressAdminPin('7')">7</div>
+                <div class="admin-pin-btn" onclick="pressAdminPin('8')">8</div>
+                <div class="admin-pin-btn" onclick="pressAdminPin('9')">9</div>
+                <div style="width:58px; height:58px;"></div>
+                <div class="admin-pin-btn" onclick="pressAdminPin('0')">0</div>
+                <div class="admin-pin-btn backspace" onclick="pressAdminBackspace()">⌫</div>
+            </div>
+
+            <button type="button" class="login-btn" onclick="submitAdminLogin()">เข้าสู่ระบบ</button>
+        </div>
+    </div>
+
+    <!-- 2. ส่วนเนื้อหาหลัก -->
+    <div class="main-app-content">
+        <div class="top-bar-nav print-hide">
+            <a href="index.html" class="back-home">⬅️ การ์ดเชิญ</a>
+            
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button class="sync-top-btn" id="topSyncBtn" onclick="triggerManualSync()">
+                    <span class="live-dot"></span>
+                    <span class="sync-icon">🔄</span>
+                    <span id="syncStatusText">ซิงค์ Sheets</span>
+                </button>
+                
+                <button class="logout-top-btn" onclick="handleAdminLogout()">
+                    <span>🚪</span> ออกจากระบบ
+                </button>
+            </div>
+        </div>
+
+        <div class="header print-hide">
+            <h1>✨ VIP Party Connect</h1>
+            <p>ระบบต้อนรับและลงทะเบียนเข้างาน (Admin)</p>
+        </div>
+
+        <div class="tabs print-hide">
+            <button class="tab-btn active" onclick="switchTab('single', this)">🎟️ สร้าง QR (เพิ่มคน)</button>
+            <button class="tab-btn" onclick="switchTab('bulk', this)">📊 รายชื่อ & QR จาก Cloud</button>
+            <button class="tab-btn" onclick="switchTab('search', this)">🔍 ค้นหา (ไม่มี QR)</button>
+            <button class="tab-btn" onclick="switchTab('scanner', this)">📸 จุดสแกนเข้างาน</button>
+            <button class="tab-btn" onclick="switchTab('dashboard', this)">📈 สถิติเข้างาน</button>
+        </div>
+
+        <div class="container">
+            
+            <!-- แท็บสร้าง QR / เพิ่มคนใหม่ -->
+            <div id="tab-single" class="tab-content active">
+                <h2 style="color: #ffd700; text-align: center; margin-bottom: 5px;">เพิ่มผู้เข้าร่วมใหม่ (Walk-in)</h2>
+                <p style="text-align: center; color: #aaa; margin-top: 0; margin-bottom: 20px;">กรอกข้อมูล แล้วเลือกสร้าง QR Code หรือ สั่งเช็คอินเข้างานทันที</p>
+                
+                <input type="text" id="s_empId" placeholder="รหัสพนักงาน (เช่น 012345)">
+                <input type="text" id="s_empName" placeholder="ชื่อ-นามสกุล (บังคับ)">
+                <input type="text" id="s_empBranch" placeholder="สาขา / แผนก">
+                
+                <div class="btn-group">
+                    <button class="action-btn" onclick="processNewGuest('showQR')">✨ สร้าง QR Code สำหรับสแกน</button>
+                    <button class="action-btn checkin-btn" onclick="processNewGuest('instantCheckIn')">🚀 เช็คอินเข้างานทันที (ไม่ต้องสแกน)</button>
+                    <button class="action-btn" style="background: #475569; color: #fff; box-shadow: none;" onclick="clearSingleInputForm()">🔄 ล้างข้อมูลที่กรอก</button>
+                </div>
+                
+                <div id="single-status-alert" style="text-align: center; font-weight: bold; margin-top: 15px; min-height: 25px;"></div>
+
+                <div id="single-qr-output" style="margin-top: 25px; display: flex; justify-content: center; display: none;">
+                    <div class="qr-card" style="width: 280px; background: #fff; color: #333;">
+                        <div id="single-qrcode" style="position: relative; width: 250px; height: 250px; margin: 0 auto; overflow: hidden; border-radius: 8px;"></div>
+                        <div class="info-text" id="single-info" style="font-size:15px; margin-top:15px; text-align:center; color:#333;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- แท็บพิมพ์บัตรและซิงค์ Cloud -->
+            <div id="tab-bulk" class="tab-content">
+                <div class="print-hide">
+                    <h2 style="color: #ffd700; text-align: center; margin-bottom: 5px;">จัดการรายชื่อและพิมพ์บัตร QR Code</h2>
+                    <p style="text-align: center; color: #bbb; font-size: 13px; margin-top: 0; margin-bottom: 15px;">ข้อมูลนี้ดึงตรงมาจาก Google Sheets ทำให้ทุกเครื่องเห็นตรงกัน</p>
+                    
+                    <input type="file" id="excelFile" accept=".xlsx, .xls">
+                    <div id="uploadStatus" style="text-align: center; font-weight: bold; margin: -5px 0 15px 0; color: #ffd700;"></div>
+                    
+                    <button class="action-btn sync-btn" onclick="fastSync(true)">🔄 รีเฟรชดึงข้อมูลล่าสุดจาก Cloud</button>
+                    <button class="action-btn print-btn" onclick="window.print()">🖨️ สั่งปริ้นแยกสาขา</button>
+                    <button class="action-btn danger-btn" onclick="clearExcelData()">🗑️ ล้างหน้าจอแสดงผล</button>
+                </div>
+                <div id="qrContainer"></div>
+            </div>
+
+            <!-- แท็บค้นหาเมื่อไม่มี QR -->
+            <div id="tab-search" class="tab-content">
+                <h2 style="color: #ffd700; text-align: center;">ค้นหารายชื่อผู้เข้างาน</h2>
+                <p style="text-align: center; color: #aaa; margin-top: -10px;">กรณีลืมคิวอาร์โค้ด หรือต้องการปลดล็อกเครื่องที่พนักงานกรอกรหัสผิด</p>
+                
+                <div style="position: relative; display: flex; align-items: center; margin: 8px 0 12px;">
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="🔍 พิมพ์ชื่อ หรือ รหัสพนักงาน..." 
+                        onkeyup="searchAttendee()"
+                        style="margin: 0; padding-right: 85px;"
+                    >
+                    <button 
+                        type="button" 
+                        onclick="clearSearchInput()"
+                        style="position: absolute; right: 8px; background: #334155; color: #e2e8f0; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; font-family: inherit;"
+                    >
+                        ✕ เคลียร์
+                    </button>
+                </div>
+                
+                <div id="search-alert" style="text-align: center; font-weight: bold; margin-bottom: 10px; min-height: 25px;"></div>
+                
+                <ul class="recent-list" id="searchResults" style="list-style: none; padding: 0; margin-top: 15px; text-align: left; max-height: 350px; overflow-y: auto;">
+                    <li style="text-align: center; color: #777; border-left: 5px solid #444; background: #18122B; padding: 10px 12px; border-radius: 8px;">กรุณาพิมพ์ข้อมูลเพื่อเริ่มค้นหา...</li>
+                </ul>
+            </div>
+
+            <!-- แท็บจุดสแกนเข้างาน -->
+            <div id="tab-scanner" class="tab-content">
+                <h2 style="color: #ffd700; text-align: center;">จุดสแกนรับแขกหน้างาน</h2>
+                
+                <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap;">
+                    <button class="action-btn mode-btn" onclick="chooseScannerMode('camera')">📸 สแกนด้วยกล้องมือถือ</button>
+                    <button class="action-btn mode-btn dark" onclick="chooseScannerMode('hardware')">🔫 ใช้เครื่องยิงบาร์โค้ด</button>
+                </div>
+                
+                <div id="camera-section" style="display: none; text-align: center;">
+                    <p style="color: #ffd700; font-size: 14px; margin-bottom: 8px;">📱 เล็ง QR Code ให้อยู่ในกรอบด้านล่าง</p>
+                    <div class="scanner-viewfinder">
+                        <div class="scan-line"></div>
+                        <div id="reader"></div>
+                    </div>
+                </div>
+                
+                <div id="hardware-section" class="scanner-box print-hide" style="display: none;">
+                    <p style="color: #ddd; margin-top: 0;">เสียบเครื่องยิงคิวอาร์โค้ด แล้วยิงลงในช่องนี้<br><small style="color:#ff6b6b;">(ห้ามลืมเปลี่ยนคีย์บอร์ดคอมพิวเตอร์เป็น <b>ภาษาอังกฤษ</b>)</small></p>
+                    
+                    <div style="background: rgba(255, 215, 0, 0.15); border: 1px dashed #ffd700; padding: 8px; border-radius: 6px; font-size: 12px; color: #ffeb3b; margin: 10px 0;">
+                        💡 <b>คำแนะนำสำหรับเครื่องยิง:</b> หากสแกนหน้าจอมือถือไม่ติด ให้<b>ขยับมือถือเข้าหรือออกห่าง</b>จากเครื่องยิง (ระยะที่เหมาะสมประมาณ 15-20 ซม.)
+                    </div>
+
+                    <input type="text" id="hardwareInput" placeholder="[ สแกนคิวอาร์โค้ดที่นี่ ]" autocomplete="off">
+                </div>
+                
+                <div id="result">🟢 กรุณาเลือกโหมดสแกนด้านบน...</div>
+            </div>
+
+            <!-- แท็บ Dashboard สถิติ Real-time -->
+            <div id="tab-dashboard" class="tab-content">
+                <h2 style="color: #ffd700; text-align: center; margin-bottom: 10px;">สถิติผู้เข้างาน (Real-time)</h2>
+                
+                <div class="round-toggle-container">
+                    <button class="round-btn active" id="btn-round-all" onclick="switchDashboardRound('all')">⭐ ทั้งหมด</button>
+                    <button class="round-btn" id="btn-round-morning" onclick="switchDashboardRound('morning')">☀️ รอบเช้า</button>
+                    <button class="round-btn" id="btn-round-evening" onclick="switchDashboardRound('evening')">🌙 รอบเย็น</button>
+                </div>
+                
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <h3>จำนวนทั้งหมด <button class="edit-btn" onclick="setTotalManually()">✏️ แก้ไข</button></h3>
+                        <p class="stat-number text-blue" id="stat-total">0</p>
+                    </div>
+                    <div class="stat-box">
+                        <h3>สแกนเข้างานแล้ว</h3>
+                        <p class="stat-number text-green" id="stat-checked">0</p>
+                    </div>
+                    <div class="stat-box">
+                        <h3>ยังไม่มา</h3>
+                        <p class="stat-number text-red" id="stat-absent">0</p>
+                    </div>
+                </div>
+
+                <h4 style="border-left: 4px solid #ffd700; padding-left: 8px; color: #ffd700; margin: 25px 0 5px; font-size: 16px;">
+                    🏢 สถิติและรายชื่อแยกตามสาขา (<span id="branch-round-label">รวมทุกรอบ</span>)
+                </h4>
+                <p style="color: #888; font-size: 12px; margin: 0 0 12px 0;">👇 กดปุ่ม <b>"มาแล้ว"</b> หรือ <b>"ยังไม่มา"</b> ในแต่ละสาขาเพื่อเปิดดูรายชื่อ (คนที่มาล่าสุดจะอยู่บนสุด)</p>
+                
+                <div class="branch-stat-grid" id="branch-stats-container">
+                    <div style="grid-column: 1/-1; text-align: center; color: #777; padding: 20px;">กำลังประมวลผลสถิติสาขา...</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const scriptUrl = "https://script.google.com/macros/s/AKfycbxwf4GF2ebnkN_qg6T8C3pfF9k0PTqUDLFAHWywGHhRm1OQffUMtHIEsKBu0Qci9yv_Zg/exec"; 
+        
+        let html5QrCode = null;
+        const scannedGuests = new Set(); 
+        let isProcessing = false;
+        let isSyncing = false;
+        let currentDashboardRound = 'all';
+        let allGuestsList = [];
+        let latestBranchStats = {};
+        const branchFilterState = {};
+
+        /* ---------- ระบบล็อกอิน PIN PAD (รหัสผ่าน: 999) ---------- */
+        const ADMIN_PASS = "999";
+        let enteredAdminPin = "";
+
+        /* ---------- ระบบจับเวลาออกจากระบบอัตโนมัติเมื่อเกิน 5 นาที ---------- */
+        const IDLE_LIMIT_MS = 5 * 60 * 1000;
+        let lastActivityTime = Date.now();
+        let idleCheckTimer = null;
+
+        function updateActivity() {
+            lastActivityTime = Date.now();
+        }
+
+        ['click', 'touchstart', 'mousemove', 'keydown', 'scroll'].forEach(evt => {
+            window.addEventListener(evt, updateActivity, { passive: true });
+        });
+
+        function startIdleTimer() {
+            if (idleCheckTimer) clearInterval(idleCheckTimer);
+            lastActivityTime = Date.now();
+
+            idleCheckTimer = setInterval(() => {
+                if (sessionStorage.getItem('clt_admin_logged') === 'true') {
+                    if (Date.now() - lastActivityTime >= IDLE_LIMIT_MS) {
+                        autoLogoutDueToInactivity();
+                    }
+                }
+            }, 5000);
+        }
+
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible") {
+                if (sessionStorage.getItem('clt_admin_logged') === 'true') {
+                    if (Date.now() - lastActivityTime >= IDLE_LIMIT_MS) {
+                        autoLogoutDueToInactivity();
+                    } else {
+                        updateActivity();
+                    }
+                }
+            } else {
+                updateActivity();
+            }
+        });
+
+        function autoLogoutDueToInactivity() {
+            stopCameraScanner();
+            sessionStorage.removeItem('clt_admin_logged');
+            if (idleCheckTimer) clearInterval(idleCheckTimer);
+
+            enteredAdminPin = "";
+            updateAdminDots();
+            
+            const errBox = document.getElementById('adminLoginError');
+            if (errBox) errBox.innerText = "⏳ ออกจากระบบอัตโนมัติ เนื่องจากไม่มีการใช้งานเกิน 5 นาที";
+
+            const overlay = document.getElementById('adminLoginOverlay');
+            if (overlay) overlay.style.display = 'flex';
+            document.body.classList.add('login-locked');
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (sessionStorage.getItem('clt_admin_logged') === 'true') {
+                const overlay = document.getElementById('adminLoginOverlay');
+                if (overlay) overlay.style.display = 'none';
+                document.body.classList.remove('login-locked');
+                startIdleTimer();
+                fastSync(false);
+            }
+        });
+
+        // รับปุ่มคีย์บอร์ด PC (แถวบน + Numpad ฝั่งขวา)
+        window.addEventListener('keydown', (e) => {
+            const overlay = document.getElementById('adminLoginOverlay');
+            if (overlay && window.getComputedStyle(overlay).display !== 'none') {
+                if (e.key >= '0' && e.key <= '9') {
+                    e.preventDefault();
+                    pressAdminPin(e.key);
+                } else if (e.code && e.code.startsWith('Numpad') && e.code.length === 7) {
+                    const numpadDigit = e.code.replace('Numpad', '');
+                    if (numpadDigit >= '0' && numpadDigit <= '9') {
+                        e.preventDefault();
+                        pressAdminPin(numpadDigit);
+                    }
+                } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                    e.preventDefault();
+                    pressAdminBackspace();
+                } else if (e.key === 'Enter' || e.code === 'NumpadEnter') {
+                    e.preventDefault();
+                    submitAdminLogin();
+                }
+            }
+        });
+
+        function pressAdminPin(digit) {
+            if ("vibrate" in navigator) navigator.vibrate(15);
+            if (enteredAdminPin.length < 3) {
+                enteredAdminPin += digit;
+                updateAdminDots();
+
+                if (enteredAdminPin.length === 3) {
+                    setTimeout(() => {
+                        submitAdminLogin();
+                    }, 180);
+                }
+            }
+        }
+
+        function pressAdminBackspace() {
+            if ("vibrate" in navigator) navigator.vibrate(15);
+            if (enteredAdminPin.length > 0) {
+                enteredAdminPin = enteredAdminPin.slice(0, -1);
+                updateAdminDots();
+            }
+        }
+
+        function updateAdminDots() {
+            for (let i = 0; i < 3; i++) {
+                const dot = document.getElementById(`adot-${i}`);
+                if (i < enteredAdminPin.length) {
+                    dot.classList.add('filled');
+                } else {
+                    dot.classList.remove('filled');
+                }
+            }
+        }
+
+        function submitAdminLogin() {
+            const errBox = document.getElementById('adminLoginError');
+            const frame = document.getElementById('adminPinFrame');
+            const overlay = document.getElementById('adminLoginOverlay');
+
+            if (enteredAdminPin === ADMIN_PASS) {
+                overlay.style.display = 'none';
+                document.body.classList.remove('login-locked');
+                sessionStorage.setItem('clt_admin_logged', 'true');
+                startIdleTimer();
+                fastSync(false);
+            } else {
+                errBox.innerText = "❌ รหัสผ่านไม่ถูกต้อง! กรุณาลองใหม่";
+                frame.classList.add('shake-error');
+                if ("vibrate" in navigator) navigator.vibrate([40, 50, 40]);
+                
+                setTimeout(() => {
+                    frame.classList.remove('shake-error');
+                    enteredAdminPin = "";
+                    updateAdminDots();
+                }, 400);
+            }
+        }
+
+        function handleAdminLogout() {
+            if (confirm("ต้องการออกจากระบบจัดการ Admin หรือไม่?")) {
+                stopCameraScanner();
+                sessionStorage.removeItem('clt_admin_logged');
+                if (idleCheckTimer) clearInterval(idleCheckTimer);
+                
+                enteredAdminPin = "";
+                updateAdminDots();
+                document.getElementById('adminLoginError').innerText = "";
+                
+                const overlay = document.getElementById('adminLoginOverlay');
+                if (overlay) overlay.style.display = 'flex';
+                document.body.classList.add('login-locked');
+            }
+        }
+
+        function encodeThaiToBase64(id, name, branch) {
+            const rawText = `${id}|${name}|${branch}`;
+            return btoa(unescape(encodeURIComponent(rawText)));
+        }
+        function decodeBase64ToThai(base64Text) {
+            try { return decodeURIComponent(escape(atob(base64Text))); } catch (e) { return null; }
+        }
+
+        function triggerManualSync() {
+            fastSync(true);
+        }
+
+        function fastSync(showAlert = false) {
+            if (isSyncing) return Promise.resolve();
+            isSyncing = true;
+
+            const topBtn = document.getElementById('topSyncBtn');
+            const textSpan = document.getElementById('syncStatusText');
+            const uploadStatus = document.getElementById('uploadStatus');
+
+            if (topBtn) topBtn.classList.add('loading');
+            if (textSpan) textSpan.innerText = 'กำลังซิงค์...';
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 9000);
+
+            return fetch(scriptUrl + "?action=getFullSync&t=" + Date.now(), { signal: controller.signal })
+                .then(res => res.json())
+                .then(data => {
+                    clearTimeout(timeoutId);
+                    if (data.status === 'success') {
+                        if (data.guests) {
+                            allGuestsList = data.guests;
+                            const bulkTab = document.getElementById('tab-bulk');
+                            if (bulkTab && bulkTab.classList.contains('active')) {
+                                renderGuestCards(allGuestsList);
+                            }
+                        }
+
+                        if (data.branchStats) {
+                            latestBranchStats = data.branchStats;
+                            renderBranchStats(latestBranchStats);
+                        }
+
+                        if (data.stats) {
+                            const localTotal = parseInt(localStorage.getItem('partyTotalGuests')) || 0;
+                            const total = Math.max(localTotal, data.stats.total, allGuestsList.length);
+                            const roundData = data.stats[currentDashboardRound] || { checkedIn: 0 };
+                            
+                            const checked = roundData.checkedIn || 0;
+                            let absent = total - checked;
+                            if (absent < 0 || total === 0) absent = 0;
+
+                            document.getElementById('stat-total').innerText = total;
+                            document.getElementById('stat-checked').innerText = checked;
+                            document.getElementById('stat-absent').innerText = absent;
+                        }
+
+                        if (uploadStatus) uploadStatus.innerHTML = `✅ ซิงค์ข้อมูลกับ Cloud สำเร็จ (${allGuestsList.length} คน)`;
+                        if (showAlert) alert(`ซิงค์ข้อมูลสำเร็จ! รายชื่อพนักงาน ${allGuestsList.length} คน พร้อมใช้งาน`);
+                    }
+                })
+                .catch(err => {
+                    console.log("ซิงค์ข้อมูลล้มเหลว หรือ หมดเวลา", err);
+                    if (uploadStatus) uploadStatus.innerHTML = '⚠️ การเชื่อมต่อช้า กรุณาลองใหม่อีกครั้ง';
+                })
+                .finally(() => {
+                    isSyncing = false;
+                    if (topBtn) topBtn.classList.remove('loading');
+                    if (textSpan) {
+                        const now = new Date();
+                        textSpan.innerText = now.toTimeString().split(' ')[0];
+                    }
+                });
+        }
+
+        function switchTab(tabId, btnElement) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            
+            const targetTab = document.getElementById('tab-' + tabId);
+            if(targetTab) targetTab.classList.add('active');
+            if(btnElement) btnElement.classList.add('active');
+            
+            stopCameraScanner();
+
+            if (tabId === 'bulk') {
+                renderGuestCards(allGuestsList);
+            } else if (tabId === 'scanner') {
+                document.getElementById('camera-section').style.display = 'none';
+                document.getElementById('hardware-section').style.display = 'none';
+                resetResult("🟢 กรุณาเลือกโหมดสแกนด้านบน...");
+            } else if (tabId === 'dashboard') {
+                renderBranchStats(latestBranchStats);
+            } else if (tabId === 'search') {
+                clearSearchInput();
+            }
+        }
+
+        function switchDashboardRound(round) {
+            currentDashboardRound = round;
+            document.getElementById('btn-round-all').classList.remove('active');
+            document.getElementById('btn-round-morning').classList.remove('active');
+            document.getElementById('btn-round-evening').classList.remove('active');
+
+            const branchLabel = document.getElementById('branch-round-label');
+
+            if (round === 'all') {
+                document.getElementById('btn-round-all').classList.add('active');
+                if (branchLabel) branchLabel.innerText = "รวมทุกรอบ";
+            } else if (round === 'morning') {
+                document.getElementById('btn-round-morning').classList.add('active');
+                if (branchLabel) branchLabel.innerText = "รอบเช้า";
+            } else if (round === 'evening') {
+                document.getElementById('btn-round-evening').classList.add('active');
+                if (branchLabel) branchLabel.innerText = "รอบเย็น";
+            }
+
+            renderBranchStats(latestBranchStats);
+        }
+
+        function setBranchFilter(branchName, filterType) {
+            if (branchFilterState[branchName] === filterType) {
+                branchFilterState[branchName] = null;
+            } else {
+                branchFilterState[branchName] = filterType;
+            }
+            renderBranchStats(latestBranchStats);
+        }
+
+        function renderBranchStats(branchStats) {
+            const container = document.getElementById('branch-stats-container');
+            if (!container) return;
+            container.innerHTML = "";
+
+            const branchKeys = Object.keys(branchStats);
+            if (branchKeys.length === 0) {
+                container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #777; padding: 15px;">ยังไม่มีข้อมูลสาขา</div>`;
+                return;
+            }
+
+            const guestsByBranch = {};
+            allGuestsList.forEach(g => {
+                const bName = g.branch || "ไม่ระบุสาขา";
+                if (!guestsByBranch[bName]) guestsByBranch[bName] = [];
+                guestsByBranch[bName].push(g);
+            });
+
+            branchKeys.sort().forEach(branchName => {
+                const b = branchStats[branchName];
+                const total = b.total || 0;
+                
+                let checkedCount = 0;
+                if (currentDashboardRound === 'morning') checkedCount = b.morning || 0;
+                else if (currentDashboardRound === 'evening') checkedCount = b.evening || 0;
+                else checkedCount = b.all || 0;
+
+                let absentCount = total - checkedCount;
+                if (absentCount < 0) absentCount = 0;
+
+                const percent = total > 0 ? Math.round((checkedCount / total) * 100) : 0;
+                const activeFilter = branchFilterState[branchName] || null;
+                const isOpen = activeFilter !== null;
+
+                const branchMembers = guestsByBranch[branchName] || [];
+                
+                let filteredList = branchMembers.filter(emp => {
+                    let isChecked = false;
+                    if (currentDashboardRound === 'morning') isChecked = emp.hasMorning;
+                    else if (currentDashboardRound === 'evening') isChecked = emp.hasEvening;
+                    else isChecked = (emp.hasMorning || emp.hasEvening);
+
+                    if (activeFilter === 'checked') return isChecked;
+                    if (activeFilter === 'absent') return !isChecked;
+                    return true;
+                });
+
+                if (activeFilter === 'checked') {
+                    filteredList.sort((a, b) => {
+                        let timeA = 0;
+                        let timeB = 0;
+
+                        if (currentDashboardRound === 'morning') {
+                            timeA = a.hasMorning && a.morningTime ? new Date(a.morningTime).getTime() : 0;
+                            timeB = b.hasMorning && b.morningTime ? new Date(b.morningTime).getTime() : 0;
+                        } else if (currentDashboardRound === 'evening') {
+                            timeA = a.hasEvening && a.eveningTime ? new Date(a.eveningTime).getTime() : 0;
+                            timeB = b.hasEvening && b.eveningTime ? new Date(b.eveningTime).getTime() : 0;
+                        } else {
+                            timeA = Math.max(
+                                a.hasMorning && a.morningTime ? new Date(a.morningTime).getTime() : 0,
+                                a.hasEvening && a.eveningTime ? new Date(a.eveningTime).getTime() : 0
+                            );
+                            timeB = Math.max(
+                                b.hasMorning && b.morningTime ? new Date(b.morningTime).getTime() : 0,
+                                b.hasEvening && b.eveningTime ? new Date(b.eveningTime).getTime() : 0
+                            );
+                        }
+                        return timeB - timeA;
+                    });
+                }
+
+                let memberListHtml = "";
+                if (filteredList.length === 0) {
+                    memberListHtml = `<div style="text-align: center; color: #777; font-size: 12px; padding: 10px;">ไม่มีรายชื่อในหมวดนี้</div>`;
+                } else {
+                    memberListHtml = filteredList.map(emp => {
+                        let itemClass = "is-absent";
+                        let tagsHtml = "";
+
+                        const hasM = emp.hasMorning;
+                        const hasE = emp.hasEvening;
+
+                        let mTimeDisplay = (hasM && emp.morningTime) ? emp.morningTime.split(' ')[1] || "" : "";
+                        let eTimeDisplay = (hasE && emp.eveningTime) ? emp.eveningTime.split(' ')[1] || "" : "";
+
+                        if (currentDashboardRound === 'morning') {
+                            if (hasM) {
+                                itemClass = "is-morning";
+                                tagsHtml = `<span class="guest-status-tag tag-morning">☀️ เช้า ${mTimeDisplay ? '<small class="tag-time">(' + mTimeDisplay + ')</small>' : ''}</span>`;
+                            } else {
+                                itemClass = "is-absent";
+                                tagsHtml = `<span class="guest-status-tag tag-absent">❌ ยังไม่มา</span>`;
+                            }
+                        } else if (currentDashboardRound === 'evening') {
+                            if (hasE) {
+                                itemClass = "is-evening";
+                                tagsHtml = `<span class="guest-status-tag tag-evening">🌙 เย็น ${eTimeDisplay ? '<small class="tag-time">(' + eTimeDisplay + ')</small>' : ''}</span>`;
+                            } else {
+                                itemClass = "is-absent";
+                                tagsHtml = `<span class="guest-status-tag tag-absent">❌ ยังไม่มา</span>`;
+                            }
+                        } else {
+                            if (hasM && hasE) {
+                                itemClass = "is-both";
+                                tagsHtml = `<span class="guest-status-tag tag-both">⭐ เช้า & เย็น</span>`;
+                            } else if (hasM) {
+                                itemClass = "is-morning";
+                                tagsHtml = `<span class="guest-status-tag tag-morning">☀️ เช้า ${mTimeDisplay ? '<small class="tag-time">(' + mTimeDisplay + ')</small>' : ''}</span>`;
+                            } else if (hasE) {
+                                itemClass = "is-evening";
+                                tagsHtml = `<span class="guest-status-tag tag-evening">🌙 เย็น ${eTimeDisplay ? '<small class="tag-time">(' + eTimeDisplay + ')</small>' : ''}</span>`;
+                            } else {
+                                itemClass = "is-absent";
+                                tagsHtml = `<span class="guest-status-tag tag-absent">❌ ยังไม่มา</span>`;
+                            }
+                        }
+
+                        return `
+                            <div class="branch-guest-item ${itemClass}">
+                                <div style="line-height: 1.4;">
+                                    <b style="color:#ffd700;">${emp.name}</b>
+                                    <span style="color:#888; font-size:11px; margin-left:4px;">(${emp.id})</span>
+                                </div>
+                                <div class="tags-wrapper">
+                                    ${tagsHtml}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                const card = document.createElement('div');
+                card.className = `branch-stat-card ${isOpen ? 'open' : ''}`;
+                card.innerHTML = `
+                    <div>
+                        <div class="branch-stat-header">
+                            <span class="branch-stat-title">
+                                <span>📍 ${branchName}</span>
+                            </span>
+                            <span class="branch-stat-badge">ทั้งหมด ${total} คน (${percent}%)</span>
+                        </div>
+                        
+                        <div class="branch-btn-group">
+                            <button class="branch-filter-btn btn-checked ${activeFilter === 'checked' ? 'active' : ''}" onclick="setBranchFilter('${branchName}', 'checked')">
+                                ✅ มาแล้ว (${checkedCount}) ${activeFilter === 'checked' ? '▲' : '▼'}
+                            </button>
+                            <button class="branch-filter-btn btn-absent ${activeFilter === 'absent' ? 'active' : ''}" onclick="setBranchFilter('${branchName}', 'absent')">
+                                ❌ ยังไม่มา (${absentCount}) ${activeFilter === 'absent' ? '▲' : '▼'}
+                            </button>
+                        </div>
+
+                        <div class="branch-stat-progress">
+                            <div class="branch-stat-bar" style="width: ${percent}%;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="branch-guest-list">
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #ffd700; margin-bottom: 8px; font-weight: bold;">
+                            <span>👥 ${activeFilter === 'checked' ? 'รายชื่อคนที่มาแล้ว (เรียงตามเวลาล่าสุด):' : 'รายชื่อคนที่ยังไม่มา:'}</span>
+                            <span style="font-size: 11px; color: #aaa;">(${filteredList.length} คน)</span>
+                        </div>
+                        ${memberListHtml}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function setTotalManually() {
+            const currentTotal = localStorage.getItem('partyTotalGuests') || allGuestsList.length;
+            const newTotal = prompt("ระบุจำนวนผู้เข้าร่วมทั้งหมดที่ต้องการ:", currentTotal);
+            if(newTotal !== null && !isNaN(newTotal) && newTotal !== "") {
+                const parsedTotal = parseInt(newTotal);
+                localStorage.setItem('partyTotalGuests', parsedTotal);
+                fetch(`${scriptUrl}?action=setTotal&total=${parsedTotal}`)
+                    .then(() => { alert("อัปเดตยอดรวมสำเร็จ!"); fastSync(false); })
+                    .catch(() => { alert("บันทึกในเครื่องสำเร็จ"); fastSync(false); });
+            }
+        }
+
+        function clearSingleInputForm() {
+            document.getElementById("s_empId").value = "";
+            document.getElementById("s_empName").value = "";
+            document.getElementById("s_empBranch").value = "";
+            document.getElementById("single-status-alert").innerHTML = "";
+            document.getElementById("single-qr-output").style.display = "none";
+        }
+
+        function processNewGuest(mode) {
+            const id = (document.getElementById("s_empId").value || "-").trim();
+            const name = document.getElementById("s_empName").value.trim();
+            const branch = (document.getElementById("s_empBranch").value || "-").trim();
+            const alertBox = document.getElementById("single-status-alert");
+            
+            if (!name) { 
+                alert("กรุณากรอกชื่อ-นามสกุลพนักงานครับ"); 
+                return; 
+            }
+
+            allGuestsList.push({ id: id, name: name, branch: branch, hasMorning: false, hasEvening: false, scanRound: "none" });
+
+            fetch(`${scriptUrl}?action=addGuest&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&branch=${encodeURIComponent(branch)}`);
+
+            if (mode === 'showQR') {
+                const qrContainer = document.getElementById("single-qrcode");
+                qrContainer.innerHTML = ""; 
+                
+                const encodedData = encodeThaiToBase64(id, name, branch);
+                new QRCode(qrContainer, { 
+                    text: `VIPPARTY|${encodedData}`, 
+                    width: 250, height: 250,
+                    correctLevel : QRCode.CorrectLevel.H 
+                });
+
+                setTimeout(() => {
+                    const logoWrapper = document.createElement("div");
+                    logoWrapper.style.position = "absolute";
+                    logoWrapper.style.top = "50%";
+                    logoWrapper.style.left = "50%";
+                    logoWrapper.style.transform = "translate(-50%, -50%)";
+                    logoWrapper.style.width = "48px";
+                    logoWrapper.style.height = "48px";
+                    logoWrapper.style.backgroundColor = "white";
+                    logoWrapper.style.borderRadius = "50%";
+                    logoWrapper.style.display = "flex";
+                    logoWrapper.style.justifyContent = "center";
+                    logoWrapper.style.alignItems = "center";
+                    logoWrapper.style.boxShadow = "0 0 6px rgba(0,0,0,0.2)";
+
+                    const logoImg = document.createElement("img");
+                    logoImg.src = "logo CLT (1)-01.png";
+                    logoImg.style.width = "34px";
+                    logoImg.style.height = "34px";
+                    logoImg.style.objectFit = "contain";
+                    
+                    logoWrapper.appendChild(logoImg);
+                    qrContainer.appendChild(logoWrapper);
+                }, 100);
+
+                document.getElementById("single-info").innerHTML = `<b>${id}</b><br>${name}<br>${branch}`;
+                document.getElementById("single-qr-output").style.display = "flex";
+                alertBox.innerHTML = `✅ เพิ่ม "${name}" เข้าระบบสำเร็จ!`;
+                alertBox.style.color = "#ffd700";
+            } 
+            else if (mode === 'instantCheckIn') {
+                document.getElementById("single-qr-output").style.display = "none";
+                alertBox.innerHTML = `⏳ กำลังบันทึกการเข้างานของ "${name}"...`;
+                alertBox.style.color = "#ffa500";
+
+                const fetchUrl = `${scriptUrl}?id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&branch=${encodeURIComponent(branch)}`;
+                fetch(fetchUrl)
+                    .then(res => res.json())
+                    .then(data => {
+                        scannedGuests.add(id);
+                        alertBox.innerHTML = `🎉 บันทึก "${name}" (${data.round}) เรียบร้อยแล้ว!`;
+                        alertBox.style.color = "#00C851";
+                        fastSync(false);
+                    })
+                    .catch(err => {
+                        alertBox.innerHTML = `⚠️ เพิ่มรายชื่อแล้ว แต่การส่งสถิติเข้างานขัดข้อง`;
+                        alertBox.style.color = "#ff5252";
+                    });
+            }
+
+            document.getElementById("s_empId").value = "";
+            document.getElementById("s_empName").value = "";
+            document.getElementById("s_empBranch").value = "";
+        }
+
+        function renderGuestCards(guests) {
+            const container = document.getElementById("qrContainer");
+            if (!container) return;
+            container.innerHTML = ""; 
+            if (!guests || guests.length === 0) return;
+
+            const groupedByBranch = {};
+            guests.forEach(emp => {
+                const branch = emp.branch || "ไม่ระบุสาขา";
+                if (!groupedByBranch[branch]) groupedByBranch[branch] = [];
+                groupedByBranch[branch].push(emp);
+            });
+
+            for (const branch in groupedByBranch) {
+                const sec = document.createElement("div"); sec.className = "branch-section";
+                sec.innerHTML = `<h3 style="border-bottom: 2px solid rgba(255,215,0,0.3); color:#ffd700; padding-bottom: 8px;">📍 สาขา: ${branch}</h3>`;
+                const grid = document.createElement("div"); grid.className = "qr-grid";
+
+                groupedByBranch[branch].forEach(emp => {
+                    const card = document.createElement("div"); card.className = "qr-card";
+                    
+                    const qrDiv = document.createElement("div"); 
+                    qrDiv.style.position = "relative";
+                    qrDiv.style.width = "150px";
+                    qrDiv.style.height = "150px";
+                    qrDiv.style.background = "#fff";
+                    qrDiv.style.borderRadius = "8px";
+                    qrDiv.style.overflow = "hidden";
+                    qrDiv.style.display = "flex";
+                    qrDiv.style.justifyContent = "center";
+                    qrDiv.style.alignItems = "center";
+
+                    const infoDiv = document.createElement("div"); infoDiv.className = "info-text";
+                    infoDiv.innerHTML = `<b style="color:#ffd700;">${emp.id}</b><br>${emp.name}<br>${emp.branch}`;
+
+                    card.appendChild(qrDiv);
+                    card.appendChild(infoDiv);
+                    grid.appendChild(card);
+                    
+                    const encodedData = encodeThaiToBase64(emp.id, emp.name, emp.branch);
+                    
+                    // บัตรปริ้นใช้ VIPPARTY ปกติ
+                    new QRCode(qrDiv, { 
+                        text: `VIPPARTY|${encodedData}`, 
+                        width: 150, 
+                        height: 150,
+                        correctLevel : QRCode.CorrectLevel.H 
+                    });
+
+                    setTimeout(() => {
+                        const logoWrapper = document.createElement("div");
+                        logoWrapper.style.position = "absolute";
+                        logoWrapper.style.top = "50%";
+                        logoWrapper.style.left = "50%";
+                        logoWrapper.style.transform = "translate(-50%, -50%)";
+                        logoWrapper.style.width = "36px";
+                        logoWrapper.style.height = "36px";
+                        logoWrapper.style.backgroundColor = "white";
+                        logoWrapper.style.borderRadius = "50%";
+                        logoWrapper.style.display = "flex";
+                        logoWrapper.style.justifyContent = "center";
+                        logoWrapper.style.alignItems = "center";
+                        logoWrapper.style.boxShadow = "0 0 6px rgba(0,0,0,0.3)";
+
+                        const logoImg = document.createElement("img");
+                        logoImg.src = "logo CLT (1)-01.png";
+                        logoImg.style.width = "26px";
+                        logoImg.style.height = "26px";
+                        logoImg.style.objectFit = "contain";
+
+                        logoWrapper.appendChild(logoImg);
+                        qrDiv.appendChild(logoWrapper);
+                    }, 60);
+                });
+                sec.appendChild(grid); container.appendChild(sec);
+            }
+        }
+
+        document.getElementById('excelFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.innerHTML = "⏳ กำลังอัปโหลดข้อมูลขึ้น Cloud (Google Sheets)...";
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const workbook = XLSX.read(new Uint8Array(e.target.result), {
+                    type: 'array', 
+                    cellText: true, 
+                    raw: false,
+                    cellDates: true
+                });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(firstSheet, { 
+                    header: 1, 
+                    raw: false,
+                    defval: "" 
+                });
+
+                const cleanJson = json.map(row => {
+                    return row.map(cell => (cell !== undefined && cell !== null) ? cell.toString().trim() : "");
+                }).filter(row => row.some(cell => cell !== ""));
+
+                fetch(scriptUrl, {
+                    method: "POST",
+                    body: JSON.stringify({ guests: cleanJson })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    statusDiv.innerHTML = `✅ อัปโหลดขึ้น Cloud สำเร็จ!`;
+                    alert(`อัปโหลดสำเร็จ! ทุกเครื่องสามารถดึงข้อมูลชุดนี้ได้ทันที (คงเลข 0 ครบถ้วน)`);
+                    fastSync(false);
+                })
+                .catch(() => {
+                    statusDiv.innerHTML = `⚠️ อัปโหลดไปยัง Cloud ไม่สำเร็จ`;
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function clearExcelData() {
+            document.getElementById("qrContainer").innerHTML = "";
+            document.getElementById('excelFile').value = ""; 
+            document.getElementById('uploadStatus').innerHTML = "";
+        }
+
+        function clearSearchInput() {
+            document.getElementById('searchInput').value = "";
+            document.getElementById('searchResults').innerHTML = "<li style='text-align: center; color: #777; border-left: 5px solid #444; background: #18122B; padding: 10px 12px; border-radius: 8px;'>กรุณาพิมพ์ข้อมูลเพื่อเริ่มค้นหา...</li>";
+            document.getElementById('search-alert').innerHTML = "";
+            document.getElementById('searchInput').focus();
+        }
+
+        function searchAttendee() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            const list = document.getElementById('searchResults');
+            list.innerHTML = "";
+
+            if (query.length < 1) {
+                list.innerHTML = "<li style='text-align: center; color: #777; border-left: 5px solid #444; background: #18122B; padding: 10px 12px; border-radius: 8px;'>กรุณาพิมพ์ข้อมูลเพื่อเริ่มค้นหา...</li>";
+                return;
+            }
+
+            let matches = allGuestsList.filter(emp => 
+                emp.id.toLowerCase().includes(query) || emp.name.toLowerCase().includes(query)
+            );
+
+            if (matches.length === 0) {
+                list.innerHTML = "<li style='text-align: center; color: #777; border-left: 5px solid #444; background: #18122B; padding: 10px 12px; border-radius: 8px;'>❌ ไม่พบชื่อ หรือ รหัสพนักงานที่ค้นหา</li>";
+                return;
+            }
+
+            matches.forEach(emp => {
+                const li = document.createElement('li');
+                li.style.display = 'flex';
+                li.style.justifyContent = 'space-between';
+                li.style.alignItems = 'center';
+                li.style.background = '#18122B';
+                li.style.padding = '10px 12px';
+                li.style.marginBottom = '8px';
+                li.style.borderRadius = '8px';
+                li.style.borderLeft = '4px solid #ffd700';
+                
+                let btnHtml = `
+                    <div style="display: flex; gap: 6px;">
+                        <button class="action-btn" style="width: auto; padding: 7px 14px; font-size: 13px; margin: 0; background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%); color: white;" onclick="manualCheckIn('${emp.id}', '${emp.name}', '${emp.branch}')">
+                            ✓ เข้างาน
+                        </button>
+                        <button class="action-btn" style="width: auto; padding: 7px 12px; font-size: 13px; margin: 0; background: #f97316; color: white;" onclick="adminResetDevice('${emp.id}', '${emp.name}')">
+                            🔓 ปลดล็อกเครื่อง
+                        </button>
+                    </div>
+                `;
+
+                li.innerHTML = `
+                    <div style="line-height: 1.4;">
+                        <b style="color:#ffd700;">${emp.name}</b> <span style="color:#aaa; font-size:14px;">(${emp.branch})</span><br>
+                        <small style="color:#888;">รหัส: ${emp.id}</small>
+                    </div>
+                    <div>${btnHtml}</div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function adminResetDevice(empId, empName) {
+            if (!confirm(`ยืนยันการปลดล็อกเครื่อง / ล้างประวัติของ "${empName}" (${empId}) หรือไม่?\n(เครื่องที่ผูกกับรหัสนี้จะสามารถกรอกรหัสใหม่ได้ทันที)`)) {
+                return;
+            }
+
+            const alertBox = document.getElementById('search-alert');
+            alertBox.innerHTML = `⏳ กำลังปลดล็อกเครื่อง: ${empName}...`;
+            alertBox.style.color = "#f97316";
+
+            fetch(`${scriptUrl}?action=resetDevice&id=${encodeURIComponent(empId)}&t=${Date.now()}`)
+                .then(res => res.json())
+                .then(res => {
+                    if (res.status === "success") {
+                        alertBox.innerHTML = `✅ ${res.message}`;
+                        alertBox.style.color = "#22c55e";
+                        fastSync(false);
+                    } else {
+                        alertBox.innerHTML = `❌ ${res.message}`;
+                        alertBox.style.color = "#ef4444";
+                    }
+                })
+                .catch(() => {
+                    alertBox.innerHTML = "❌ การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว";
+                    alertBox.style.color = "#ef4444";
+                })
+                .finally(() => {
+                    setTimeout(() => { alertBox.innerHTML = ""; }, 3500);
+                });
+        }
+
+        function manualCheckIn(empId, empName, empBranch) {
+            if (isProcessing) return;
+            empId = empId.trim();
+            
+            const alertBox = document.getElementById('search-alert');
+            alertBox.innerHTML = `⏳ กำลังบันทึก: <span style="color:#ffd700">${empName}</span>...`;
+            isProcessing = true;
+
+            const fetchUrl = `${scriptUrl}?id=${encodeURIComponent(empId)}&name=${encodeURIComponent(empName)}&branch=${encodeURIComponent(empBranch)}`;
+
+            fetch(fetchUrl)
+                .then(res => res.json())
+                .then(data => {
+                    if(data.status === "success") {
+                        scannedGuests.add(empId); 
+                        alertBox.innerHTML = `✅ บันทึก <span style="color:#00C851">${empName}</span> (${data.round}) สำเร็จ!`;
+                        searchAttendee(); 
+                    } 
+                    else if (data.status === "duplicate") { 
+                        scannedGuests.add(empId); 
+                        alertBox.innerHTML = `⚠️ ข้อมูลซ้ำ! <span style="color:#ff5252">${empName}</span> ได้ลงทะเบียน <b>${data.round}</b> ไปแล้ว`;
+                        searchAttendee(); 
+                    }
+                    else if (data.status === "out_of_time") {
+                        alertBox.innerHTML = `❌ <b>อยู่นอกเวลาสแกน!</b> <small>${data.message}</small>`;
+                    }
+                })
+                .catch(err => {
+                    alertBox.innerHTML = "❌ การเชื่อมต่อล้มเหลว กรุณาลองใหม่";
+                })
+                .finally(() => {
+                    setTimeout(() => { isProcessing = false; alertBox.innerHTML = ""; }, 3000); 
+                });
+        }
+
+        function chooseScannerMode(mode) {
+            stopCameraScanner();
+            document.getElementById('camera-section').style.display = 'none';
+            document.getElementById('hardware-section').style.display = 'none';
+
+            if (mode === 'camera') {
+                document.getElementById('camera-section').style.display = 'block';
+                initCameraScanner();
+                resetResult("🟢 ระบบกล้องพร้อมสแกน...");
+            } else if (mode === 'hardware') {
+                document.getElementById('hardware-section').style.display = 'block';
+                document.getElementById('hardwareInput').focus();
+                resetResult("🟢 เครื่องยิงพร้อมทำงาน...");
+            }
+        }
+
+        /* ---------- ถอดรหัสและตรวจสอบ Dynamic QR หรือ Static บัตรกระดาษ ---------- */
+        function processQRCode(decodedText) {
+            if (isProcessing || !decodedText) return;
+
+            decodedText = decodedText.replace(/\uFFFD/g, '').trim();
+            const resultDiv = document.getElementById('result');
+
+            const isLiveMobile = decodedText.startsWith("VIPPARTY_LIVE|");
+            const isStaticTicket = decodedText.startsWith("VIPPARTY|");
+
+            if (!isLiveMobile && !isStaticTicket) {
+                showError("❌ ข้อมูลไม่ถูกต้อง<br><small>(ไม่ใช่ QR ของระบบนี้ หรือแป้นพิมพ์ไม่ได้เป็นภาษาอังกฤษ)</small>");
+                return;
+            }
+
+            const base64Data = isLiveMobile ? decodedText.split("VIPPARTY_LIVE|")[1] : decodedText.split("VIPPARTY|")[1];
+            const decodedString = decodeBase64ToThai(base64Data);
+
+            if (!decodedString) {
+                showError("❌ ไม่สามารถอ่านคิวอาร์โค้ดได้<br><small>กรุณาสร้างคิวอาร์โค้ดใหม่</small>");
+                return;
+            }
+
+            const dataParts = decodedString.split("|");
+            const empId = dataParts[0] ? dataParts[0].trim() : "-";
+            const empName = dataParts[1] ? dataParts[1].trim() : "-";
+            const empBranch = dataParts[2] ? dataParts[2].trim() : "-";
+            const timestamp = dataParts[3] ? parseInt(dataParts[3], 10) : null;
+
+            // ตรวจสอบเวลาถ้าเป็น Dynamic QR จากมือถือ (หมดอายุใน 60 วินาที ป้องกันการแคปจอ)
+            if (isLiveMobile && timestamp) {
+                const now = Date.now();
+                const diffSeconds = (now - timestamp) / 1000;
+                
+                // ให้เวลาเผื่อหน่วงเน็ต/นาฬิกาไม่ตรงกัน 60 วินาที
+                if (diffSeconds > 60 || diffSeconds < -30) {
+                    showError("❌ <b>QR Code หมดอายุแล้ว!</b><br><span style='font-size:14px; color:#ffd700;'>(ตรวจพบว่าเป็นภาพแคปหน้าจอ กรุณาเปิดจากในแอปตัวจริง)</span>");
+                    return;
+                }
+            }
+
+            isProcessing = true;
+            resultDiv.innerHTML = `⏳ กำลังตรวจสอบและบันทึก: <b>${empName}</b>...`;
+            resultDiv.style.backgroundColor = "#ffc107"; resultDiv.style.color = "black";
+            
+            const fetchUrl = `${scriptUrl}?id=${encodeURIComponent(empId)}&name=${encodeURIComponent(empName)}&branch=${encodeURIComponent(empBranch)}`;
+
+            fetch(fetchUrl)
+                .then(res => res.json())
+                .then(data => {
+                    if(data.status === "success") {
+                        scannedGuests.add(empId); 
+                        resultDiv.innerHTML = `✅ ยินดีต้อนรับ!<br><span style="font-size:28px;">${empName}</span><br><span style="color:#000; font-size:16px; background:#ffd700; padding:2px 8px; border-radius:4px; display:inline-block; margin-top:5px;">(ลงทะเบียน<b>${data.round}</b>สำเร็จ)</span><br><small>${empBranch} (${empId})</small>`;
+                        resultDiv.style.backgroundColor = "#00C851"; resultDiv.style.color = "white";
+                    } 
+                    else if (data.status === "duplicate") { 
+                        scannedGuests.add(empId); 
+                        resultDiv.innerHTML = `⚠️ <b>ข้อมูลซ้ำ!</b><br>${empName} ได้ลงทะเบียนใน <b>${data.round}</b> ไปแล้วครับ`;
+                        resultDiv.style.backgroundColor = "#ffa500"; 
+                        resultDiv.style.color = "#1a0b2e";
+                    }
+                    else if (data.status === "out_of_time") {
+                        resultDiv.innerHTML = `❌ <b>อยู่นอกเวลาสแกน!</b><br><small>${data.message}</small>`;
+                        resultDiv.style.backgroundColor = "#ff5252"; 
+                        resultDiv.style.color = "white";
+                    }
+                })
+                .catch(err => {
+                    showError("❌ การเชื่อมต่อล้มเหลว กรุณาสแกนใหม่");
+                })
+                .finally(() => {
+                    setTimeout(() => { isProcessing = false; restoreFocus(); }, 1800); 
+                });
+        }
+
+        function initCameraScanner() {
+            if (html5QrCode) {
+                stopCameraScanner();
+            }
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                { 
+                    fps: 35, 
+                    qrbox: { width: 220, height: 220 },
+                    aspectRatio: 1.0
+                },
+                function(decodedText) { processQRCode(decodedText); }, 
+                function(error) { }
+            ).catch(err => {
+                showError("❌ ไม่สามารถเปิดกล้องได้");
+            });
+        }
+
+        function stopCameraScanner() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
+                    html5QrCode = null;
+                }).catch(err => {
+                    html5QrCode = null;
+                });
+            }
+        }
+
+        function showError(msg) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = msg;
+            resultDiv.style.backgroundColor = "#ff5252"; resultDiv.style.color = "white";
+            isProcessing = true;
+            setTimeout(() => { isProcessing = false; restoreFocus(); }, 2500); 
+        }
+
+        let scannerTimer;
+        const hwInput = document.getElementById('hardwareInput');
+        hwInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault(); clearTimeout(scannerTimer);
+                const text = this.value.trim(); this.value = ''; processQRCode(text);
+            }
+        });
+        hwInput.addEventListener('input', function (e) {
+            clearTimeout(scannerTimer);
+            scannerTimer = setTimeout(() => {
+                const text = this.value.trim();
+                if (text.length > 5) { this.value = ''; processQRCode(text); }
+            }, 300); 
+        });
+
+        function restoreFocus() {
+            if (document.getElementById('camera-section').style.display === 'block') { resetResult("🟢 ระบบกล้องพร้อมสแกน..."); } 
+            else if (document.getElementById('hardware-section').style.display === 'block') {
+                resetResult("🟢 เครื่องยิงพร้อมทำงาน..."); document.getElementById('hardwareInput').focus();
+            }
+        }
+
+        function resetResult(msg = "🟢 ระบบพร้อมสแกน (คิวต่อไป)...") {
+            const resultDiv = document.getElementById('result'); resultDiv.innerText = msg;
+            resultDiv.style.backgroundColor = "#1a1528"; resultDiv.style.color = "#ffd700";
+            resultDiv.style.border = "1px solid rgba(255,215,0,0.3)";
+        }
+
+        document.addEventListener('click', function() {
+            if (document.getElementById('hardware-section').style.display === 'block') { document.getElementById('hardwareInput').focus(); }
+        });
+    </script>
+</body>
+</html>
